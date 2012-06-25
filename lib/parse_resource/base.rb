@@ -28,10 +28,12 @@ module ParseResource
 
     define_model_callbacks :save, :create, :update, :destroy
     
+    @@resource_class_name = model_name
+
     # Instantiates a ParseResource::Base object
     #
     # @params [Hash], [Boolean] a `Hash` of attributes and a `Boolean` that should be false only if the object already exists
-    # @return [ParseResource::Base] an object that subclasses `Parseresource::Base`
+    # @return [ParseResource::Base] an object that subclasses `ParseResource::Base`
     def initialize(attributes = {}, new=true)
       #attributes = HashWithIndifferentAccess.new(attributes)
 
@@ -45,6 +47,7 @@ module ParseResource
       self.attributes.merge!(attributes)
       self.attributes unless self.attributes.empty?
       create_setters_and_getters!
+
     end
 
     # Explicitly adds a field to the model.
@@ -81,6 +84,14 @@ module ParseResource
       field(parent)
     end
     
+    # Similar to ActiveRecord's self.table_name.  Allows you to reference a Parse class
+    # that's not named the same as the ParseResource class.
+    #
+    # @param [string] resource_class_name : the Parse.com class name this ParseResource references.
+    def self.resource_class_name(value)
+      @@resource_class_name = value
+    end
+
     def to_pointer
       klass_name = self.class.model_name
       klass_name = "_User" if klass_name == "User"
@@ -241,7 +252,7 @@ module ParseResource
       if model_name == "User" #https://parse.com/docs/rest#users-signup
         base_uri = "https://api.parse.com/1/users"
       else
-        base_uri = "https://api.parse.com/1/classes/#{model_name}"
+        base_uri = "https://api.parse.com/1/classes/#{@@resource_class_name}"
       end
 
       #refactor to settings['app_id'] etc
