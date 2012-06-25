@@ -26,7 +26,7 @@ Gem::Specification.new do |s|
     "VERSION",
     "lib/parse_resource/base.rb",
     "lib/parse_resource/parse_error.rb",
-    "lib/parse_resource/parse_resource.rb",
+    "lib/parse_resource.rb",
     "lib/parse_resource/parse_user.rb",
     "lib/parse_resource/parse_user_validator.rb",
     "lib/parse_resource/query.rb",
