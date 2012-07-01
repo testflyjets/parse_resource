@@ -8,10 +8,9 @@ class ParseUser < ParseResource::Base
   #validates_with ParseUserValidator, :on => :create, :on => :save
 
   def self.authenticate(username, password)
-    resource = User.resource
     
     begin
-      resp = resource.get(:params => {:username => username, :password => password})
+      resp = self.resource.get(:params => {:username => username, :password => password})
       user = model_name.constantize.new(JSON.parse(resp), false)
             
       user 
