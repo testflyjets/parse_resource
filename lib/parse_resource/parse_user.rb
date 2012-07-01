@@ -8,7 +8,7 @@ class ParseUser < ParseResource::Base
   #validates_with ParseUserValidator, :on => :create, :on => :save
 
   def self.authenticate(username, password)
-    resource = self.class.resource
+    resource = User.resource
     
     begin
       resp = resource.get(:params => {:username => username, :password => password})
