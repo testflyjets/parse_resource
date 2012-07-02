@@ -232,8 +232,8 @@ module ParseResource
     def self.settings
       if @@settings.nil?
         path = "config/parse_resource.yml"
-        #environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
-        environment = ENV["RACK_ENV"]
+        environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
+        # environment = ENV["RACK_ENV"]
         @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
       end
       @@settings
