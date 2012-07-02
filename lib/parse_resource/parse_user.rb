@@ -9,8 +9,8 @@ class ParseUser < ParseResource::Base
 
   def self.authenticate(username, password)
     base_uri   = "https://api.parse.com/1/users"
-    app_id     = self.settings['app_id']
-    master_key = self.settings['master_key']
+    app_id     = settings['app_id']
+    master_key = settings['master_key']
     resource = RestClient::Resource.new(base_uri, app_id, master_key)
     
     begin
