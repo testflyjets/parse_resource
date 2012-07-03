@@ -94,6 +94,7 @@ module ParseResource
 
     def to_pointer
       klass_name = self.class.model_name
+      klass_name = @@resource_class_name if @@resource_class_name
       klass_name = "_User" if klass_name == "User"
       {"__type" => "Pointer", "className" => klass_name, "objectId" => self.id}
     end
