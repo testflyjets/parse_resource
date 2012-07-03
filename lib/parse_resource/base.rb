@@ -91,9 +91,9 @@ module ParseResource
     # that's not named the same as the ParseResource class.
     #
     # @param [string] resource_class_name : the Parse.com class name this ParseResource references.
-    # def self.resource_class_name(value)
-    #   @resource_class_name = value
-    # end
+    def self.resource_class_name(value)
+      self.class.resource_class_name = value
+    end
 
     def to_pointer
       # klass_name = self.class.model_name
