@@ -29,9 +29,9 @@ module ParseResource
     define_model_callbacks :save, :create, :update, :destroy
     
     class << self
-      attr_accessor :resource_class_name
+      attr_accessor :resource_klass_name
     end
-    self.resource_class_name = model_name
+    self.resource_klass_name = model_name
 
     # Instantiates a ParseResource::Base object
     #
@@ -92,12 +92,12 @@ module ParseResource
     #
     # @param [string] resource_class_name : the Parse.com class name this ParseResource references.
     def self.resource_class_name(value)
-      self.class.resource_class_name = value
+      self.class.resource_klass_name = value
     end
 
     def to_pointer
       # klass_name = self.class.model_name
-      klass_name = self.class.resource_class_name
+      klass_name = self.class.resource_klass_name
       klass_name = "_User" if klass_name == "User"
       {"__type" => "Pointer", "className" => klass_name, "objectId" => self.id}
     end
@@ -256,7 +256,7 @@ module ParseResource
       if model_name == "User" #https://parse.com/docs/rest#users-signup
         base_uri = "https://api.parse.com/1/users"
       else
-        base_uri = "https://api.parse.com/1/classes/#{self.class.resource_class_name}"
+        base_uri = "https://api.parse.com/1/classes/#{self.class.resource_klass_name}"
       end
 
       #refactor to settings['app_id'] etc
