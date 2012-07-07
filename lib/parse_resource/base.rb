@@ -31,7 +31,6 @@ module ParseResource
     class << self
       attr_accessor :resource_klass_name
     end
-    self.resource_klass_name = model_name
 
     # Instantiates a ParseResource::Base object
     #
@@ -92,13 +91,13 @@ module ParseResource
     #
     # @param [string] resource_class_name : the Parse.com class name this ParseResource references.
     def self.resource_class_name(value)
-      self.class.resource_klass_name = value
+      self.resource_klass_name = value
     end
 
     def to_pointer
-      # klass_name = self.class.model_name
-      klass_name = self.class.resource_klass_name
+      klass_name = self.class.model_name
       klass_name = "_User" if klass_name == "User"
+      klass_name = self.class.resource_klass_name if self.class.resource_klass_name
       {"__type" => "Pointer", "className" => klass_name, "objectId" => self.id}
     end
 
@@ -201,6 +200,7 @@ module ParseResource
         end
         
         query = child_klass.where(parent_klass_name.to_sym => @@parent_instance.to_pointer)
+        # puts "** parse: has_many query #{query.inspect}"
         singleton = query.all
         
         class << singleton
@@ -256,8 +256,12 @@ module ParseResource
       if model_name == "User" #https://parse.com/docs/rest#users-signup
         base_uri = "https://api.parse.com/1/users"
       else
-        base_uri = "https://api.parse.com/1/classes/#{self.class.resource_klass_name}"
+        base_uri = "https://api.parse.com/1/classes/#{self.resource_klass_name}"
       end
+      
+      # TO DO - handle files and images
+      # files  URI: https://api.parse.com/1/files/{file name}
+      # images URI:
 
       #refactor to settings['app_id'] etc
       app_id     = @@settings['app_id']
