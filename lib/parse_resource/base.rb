@@ -154,6 +154,8 @@ module ParseResource
             result = klass_name.constantize.find(@attributes[k]["objectId"])
           when "Object"
             result = klass_name.constantize.new(@attributes[k], false)
+          when "Bytes"
+            result = Base64.decode64(@attributes[k]['base64'])
           end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
           
         else
