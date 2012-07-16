@@ -156,6 +156,8 @@ module ParseResource
             result = klass_name.constantize.new(@attributes[k], false)
           when "Bytes"
             result = Base64.decode64(@attributes[k]['base64'])
+          when "file"
+            
           end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
           
         else
@@ -196,13 +198,13 @@ module ParseResource
         @@parent_instance = self
         
         parent_klass_name = case
-          when @@options[children]['inverse_of'] then @@options[children]['inverse_of'].downcase
+          when @@options[children]['inverse_of'] then @@options[children]['inverse_of'] #.downcase
           when @@parent_klass_name == "User" then "_User"
           else @@parent_klass_name.downcase
         end
         
         query = child_klass.where(parent_klass_name.to_sym => @@parent_instance.to_pointer)
-        # puts "** parse: has_many query #{query.inspect}"
+        puts "** parse: has_many query #{query.inspect}"
         singleton = query.all
         
         class << singleton
@@ -268,6 +270,7 @@ module ParseResource
       #refactor to settings['app_id'] etc
       app_id     = @@settings['app_id']
       master_key = @@settings['master_key']
+      rest_key   = @@settings['rest_key']
       RestClient::Resource.new(base_uri, app_id, master_key)
     end
 
