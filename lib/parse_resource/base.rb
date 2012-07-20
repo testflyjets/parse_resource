@@ -156,8 +156,8 @@ module ParseResource
             result = klass_name.constantize.new(@attributes[k], false)
           when "Bytes"
             result = Base64.decode64(@attributes[k]['base64'])
-          when "file"
-            
+          when "File"
+            result = @attributes[k]['url']
           end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
           
         else
@@ -198,6 +198,7 @@ module ParseResource
         @@parent_instance = self
         
         parent_klass_name = case
+          when @@options[children]['resource_class_name'] then @@options[children]['resource_class_name']
           when @@options[children]['inverse_of'] then @@options[children]['inverse_of'] #.downcase
           when @@parent_klass_name == "User" then "_User"
           else @@parent_klass_name.downcase
