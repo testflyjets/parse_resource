@@ -3,6 +3,12 @@ ParseResource
 
 ParseResource makes it easy to interact with Parse.com's REST API. It adheres to the ActiveRecord pattern. ParseResource is fully ActiveModel compliant, meaning you can use validations and Rails forms.
 
+testflyjets additions: 
+- adds handling of Parse.com class names that differ from the Rails model names
+- fixes has_many associations when the Parse and Rails model class names differ
+- adds handling of Pointer types
+- adds handling for file types
+
 Ruby/Rails developers should feel right at home.
 
 If you're used to `Post.create(:title => "Hello, world", :author => "Octocat")`, then this is for you.

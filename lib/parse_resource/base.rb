@@ -8,10 +8,11 @@ require "active_support/hash_with_indifferent_access"
 require "parse_resource/query"
 require "parse_resource/parse_error"
 require "parse_resource/parse_exceptions"
+require "parse_resource/instance_methods"
+require "parse_resource/parse_file"
 
 module ParseResource
   
-
   class Base
     # ParseResource::Base provides an easy way to use Ruby to interace with a Parse.com backend
     # Usage:
@@ -25,8 +26,14 @@ module ParseResource
     extend ActiveModel::Naming
     extend ActiveModel::Callbacks
     HashWithIndifferentAccess = ActiveSupport::HashWithIndifferentAccess
+    
+    include ParseResource::InstanceMethods
 
     define_model_callbacks :save, :create, :update, :destroy
+    
+    before_save :save_parse_files
+    # before_destroy :prepare_for_destroy
+    # after_destroy :destroy_parse_files
     
     class << self
       attr_accessor :resource_klass_name
@@ -38,7 +45,6 @@ module ParseResource
     # @return [ParseResource::Base] an object that subclasses `ParseResource::Base`
     def initialize(attributes = {}, new=true)
       #attributes = HashWithIndifferentAccess.new(attributes)
-
       if new
         @unsaved_attributes = attributes
       else
@@ -49,7 +55,6 @@ module ParseResource
       self.attributes.merge!(attributes)
       self.attributes unless self.attributes.empty?
       create_setters_and_getters!
-
     end
 
     # Explicitly adds a field to the model.
@@ -79,9 +84,28 @@ module ParseResource
       args.each {|f| field(f)}
     end
     
+    # Adds a ParseFile field to the model
+    def self.file_field(name)
+      class_eval do
+        define_method name do |*args|
+          parse_file(name)
+        end
+
+        define_method "#{name}=" do |file|
+          parse_file(name).assign(file)
+        end
+      end
+    end
+    
+    # Adds multiple file fields in one line
+    def self.file_fields(*args)
+      args.each{ |ff| file_field(ff) }
+    end
+    
     # Similar to its ActiveRecord counterpart.
     #
-    # @param [Hash] options Added so that you can specify :class_name => '...'. It does nothing at all, but helps you write self-documenting code.
+    # @param [Hash] options Added so that you can specify :class_name => '...'. 
+    # It does nothing at all, but helps you write self-documenting code.
     def self.belongs_to(parent, options = {})
       field(parent)
     end
@@ -101,18 +125,65 @@ module ParseResource
       {"__type" => "Pointer", "className" => klass_name, "objectId" => self.id}
     end
 
-    # Creates setter methods for model fields
-    def create_setters!(k,v)
-      self.class.send(:define_method, "#{k}=") do |val|
-        val = val.to_pointer if val.respond_to?(:to_pointer)
-
-        @attributes[k.to_s] = val
-        @unsaved_attributes[k.to_s] = val
+    # Creates getter methods for model fields
+    def create_getters!(k,v)
+      self.class.send(:define_method, "#{k}") do
+                
+        case @attributes[k]
+        when Hash
+          
+          klass_name = @attributes[k]["className"]
+          klass_name = "User" if klass_name == "_User"
+          
+          case @attributes[k]["__type"]
+          when "Pointer"
+            result = klass_name.constantize.find(@attributes[k]["objectId"])
+          when "Object"
+            result = klass_name.constantize.new(@attributes[k], false)
+          when "Bytes"
+            result = Base64.decode64(@attributes[k]['base64'])
+          when "File"
+            result = parse_file(k, @attributes[k])
+          end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
+          
+        else
+          result =  @attributes[k]
+        end
         
-        val
+        result
+      end      
+    end
+    
+    # Creates setter methods for model fields
+    # If a setter for a File (ParseFile) attribute already 
+    # exists, don't override it.
+    def create_setters!(k,v)
+      if v.is_a?(Hash) && v['__type'] == 'File'
+        self.class.send(:define_method, "#{k}=") do |file|
+          val = parse_file(k).assign(file)
+          @attributes[k.to_s] = val
+          
+          val
+        end
+      else
+        self.class.send(:define_method, "#{k}=") do |val|
+          val = val.to_pointer if val.respond_to?(:to_pointer)
+
+          @attributes[k.to_s] = val
+          @unsaved_attributes[k.to_s] = val
+      
+          val
+        end
       end
     end
 
+    def create_setters_and_getters!
+      @attributes.each_pair do |k,v|
+        create_setters!(k,v)
+        create_getters!(k,v)
+      end
+    end
+    
     def self.method_missing(name, *args)
       name = name.to_s
       if name.start_with?("find_by_")
@@ -138,43 +209,7 @@ module ParseResource
         super(name.to_sym, *args)
       end
     end
-
-    # Creates getter methods for model fields
-    def create_getters!(k,v)
-      self.class.send(:define_method, "#{k}") do
-                
-        case @attributes[k]
-        when Hash
-          
-          klass_name = @attributes[k]["className"]
-          klass_name = "User" if klass_name == "_User"
-          
-          case @attributes[k]["__type"]
-          when "Pointer"
-            result = klass_name.constantize.find(@attributes[k]["objectId"])
-          when "Object"
-            result = klass_name.constantize.new(@attributes[k], false)
-          when "Bytes"
-            result = Base64.decode64(@attributes[k]['base64'])
-          when "File"
-            result = @attributes[k]['url']
-          end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
-          
-        else
-          result =  @attributes[k]
-        end
-        
-        result
-      end      
-    end
-
-    def create_setters_and_getters!
-      @attributes.each_pair do |k,v|
-        create_setters!(k,v)
-        create_getters!(k,v)
-      end
-    end
-      
+    
     def self.has_many(children, options = {})
       options.stringify_keys!
       
@@ -205,7 +240,6 @@ module ParseResource
         end
         
         query = child_klass.where(parent_klass_name.to_sym => @@parent_instance.to_pointer)
-        puts "** parse: has_many query #{query.inspect}"
         singleton = query.all
         
         class << singleton
@@ -271,10 +305,27 @@ module ParseResource
       #refactor to settings['app_id'] etc
       app_id     = @@settings['app_id']
       master_key = @@settings['master_key']
-      rest_key   = @@settings['rest_key']
       RestClient::Resource.new(base_uri, app_id, master_key)
     end
 
+    # Creates a Parse file resource
+    #
+    def self.file_resource(file)
+      if @@settings.nil?
+        path = "config/parse_resource.yml"
+        environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
+        @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
+      end
+
+      base_uri = "https://api.parse.com/1/files/#{file.original_filename}"
+
+      app_id     = @@settings['app_id']
+      rest_key   = @@settings['rest_key']
+      RestClient::Resource.new(base_uri, 
+        :headers => { "X-Parse-Application-Id" => app_id, 
+                      "X-Parse-REST-API-Key"   => rest_key })      
+    end
+    
     # Find a ParseResource::Base object by ID
     #
     # @param [String] id the ID of the Parse object you want to find.
@@ -290,7 +341,7 @@ module ParseResource
       Query.new(self).where(*args)
     end
     
-    # Include the attributes of a parent ojbect in the results
+    # Include the attributes of a parent object in the results
     # Similar to ActiveRecord eager loading
     #
     def self.include_object(parent)
@@ -361,6 +412,10 @@ module ParseResource
     def resource
       self.class.resource
     end
+    
+    def file_resource(file)
+      self.class.file_resource(file)
+    end
 
     # create RESTful resource for the specific Parse object
     # sends requests to [base_uri]/[classname]/[objectId]
@@ -370,7 +425,16 @@ module ParseResource
 
     def create
       opts = {:content_type => "application/json"}
+      # Handle newly created ParseFile objects so they can be
+      # associated with this ParseResource instance
+      each_file do |name, file|
+        if file.dirty?
+          @unsaved_attributes[name] = file.to_parse_attr
+        end
+      end
       attrs = @unsaved_attributes.to_json
+      puts "** create, unsaved_attrs = #{@unsaved_attributes.inspect}"
+      
       result = self.resource.post(attrs, opts) do |resp, req, res, &block|
         
         case resp.code 
@@ -407,7 +471,6 @@ module ParseResource
     end
 
     def update(attributes = {})
-      
       attributes = HashWithIndifferentAccess.new(attributes)
         
       @unsaved_attributes.merge!(attributes)
@@ -417,6 +480,8 @@ module ParseResource
       put_attrs.delete('createdAt')
       put_attrs.delete('updatedAt')
       put_attrs = put_attrs.to_json
+      
+      puts "in base.update, attrs = #{put_attrs.inspect}"
       
       opts = {:content_type => "application/json"}
       result = self.instance_resource.put(put_attrs, opts) do |resp, req, res, &block|
