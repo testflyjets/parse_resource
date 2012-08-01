@@ -35,7 +35,7 @@ module ParseResource
     define_model_callbacks :save, :create, :update, :destroy
     
     before_save   :save_parse_files
-    after_destroy :destroy_parse_files
+    before_destroy :destroy_parse_files
     
     class << self
       attr_accessor :resource_klass_name
@@ -58,7 +58,7 @@ module ParseResource
       self.attributes unless self.attributes.empty?
       create_setters_and_getters!
     end
-
+    
     # Explicitly adds a field to the model.
     #
     # @param [Symbol] name the name of the field, eg `:author`.
@@ -157,7 +157,6 @@ module ParseResource
           when "Bytes"
             result = Base64.decode64(@attributes[k]['base64'])
           when "File"
-            puts "** in create_getters"
             result = parse_file(k, @attributes[k])
           end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
           
