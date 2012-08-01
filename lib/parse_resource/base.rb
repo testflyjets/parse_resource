@@ -23,17 +23,19 @@ module ParseResource
     include ActiveModel::Validations
     include ActiveModel::Conversion
     include ActiveModel::AttributeMethods
+    
     extend ActiveModel::Naming
     extend ActiveModel::Callbacks
+    
     HashWithIndifferentAccess = ActiveSupport::HashWithIndifferentAccess
     
     include ParseResource::InstanceMethods
+    self.class_attribute :parse_file_fields
 
     define_model_callbacks :save, :create, :update, :destroy
     
-    before_save :save_parse_files
-    # before_destroy :prepare_for_destroy
-    # after_destroy :destroy_parse_files
+    before_save   :save_parse_files
+    after_destroy :destroy_parse_files
     
     class << self
       attr_accessor :resource_klass_name
@@ -86,6 +88,13 @@ module ParseResource
     
     # Adds a ParseFile field to the model
     def self.file_field(name)
+      if parse_file_fields.nil?
+        self.parse_file_fields = []
+      else
+        self.parse_file_fields = self.parse_file_fields.dup
+      end
+      parse_file_fields << name.to_s
+      
       class_eval do
         define_method name do |*args|
           parse_file(name)
@@ -97,8 +106,13 @@ module ParseResource
       end
     end
     
+    # convenience accessor for class attribute
+    def parse_file_fields
+      self.parse_file_fields
+    end
+    
     # Adds multiple file fields in one line
-    def self.file_fields(*args)
+    def self.file_fields(*args)      
       args.each{ |ff| file_field(ff) }
     end
     
@@ -143,6 +157,7 @@ module ParseResource
           when "Bytes"
             result = Base64.decode64(@attributes[k]['base64'])
           when "File"
+            puts "** in create_getters"
             result = parse_file(k, @attributes[k])
           end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
           
@@ -297,10 +312,6 @@ module ParseResource
       else
         base_uri = "https://api.parse.com/1/classes/#{self.resource_klass_name}"
       end
-      
-      # TO DO - handle files and images
-      # files  URI: https://api.parse.com/1/files/{file name}
-      # images URI:
 
       #refactor to settings['app_id'] etc
       app_id     = @@settings['app_id']
@@ -324,6 +335,24 @@ module ParseResource
       RestClient::Resource.new(base_uri, 
         :headers => { "X-Parse-Application-Id" => app_id, 
                       "X-Parse-REST-API-Key"   => rest_key })      
+    end
+    
+    # Deletes a Parse file resource
+    #
+    def self.delete_file_resource(file)
+      if @@settings.nil?
+        path = "config/parse_resource.yml"
+        environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
+        @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
+      end
+
+      base_uri = "https://api.parse.com/1/files/#{file.name}"
+
+      app_id     = @@settings['app_id']
+      master_key = @@settings['master_key']
+      RestClient::Resource.new(base_uri, 
+        :headers => { "X-Parse-Application-Id" => app_id, 
+                      "X-Parse-Master-Key"     => master_key })      
     end
     
     # Find a ParseResource::Base object by ID
@@ -413,8 +442,14 @@ module ParseResource
       self.class.resource
     end
     
+    # delegate
     def file_resource(file)
       self.class.file_resource(file)
+    end
+    
+    # delegate
+    def delete_file_resource(file)
+      self.class.delete_file_resource(file)
     end
 
     # create RESTful resource for the specific Parse object
@@ -432,9 +467,7 @@ module ParseResource
           @unsaved_attributes[name] = file.to_parse_attr
         end
       end
-      attrs = @unsaved_attributes.to_json
-      puts "** create, unsaved_attrs = #{@unsaved_attributes.inspect}"
-      
+      attrs = @unsaved_attributes.to_json      
       result = self.resource.post(attrs, opts) do |resp, req, res, &block|
         
         case resp.code 
@@ -480,9 +513,7 @@ module ParseResource
       put_attrs.delete('createdAt')
       put_attrs.delete('updatedAt')
       put_attrs = put_attrs.to_json
-      
-      puts "in base.update, attrs = #{put_attrs.inspect}"
-      
+            
       opts = {:content_type => "application/json"}
       result = self.instance_resource.put(put_attrs, opts) do |resp, req, res, &block|
 
@@ -514,9 +545,11 @@ module ParseResource
     end
 
     def destroy
-      self.instance_resource.delete
-      @attributes = {}
-      @unsaved_attributes = {}
+      run_callbacks :destroy do
+        self.instance_resource.delete
+        @attributes = {}
+        @unsaved_attributes = {}
+      end
       nil
     end
 

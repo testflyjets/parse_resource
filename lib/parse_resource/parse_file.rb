@@ -19,10 +19,7 @@ module  ParseResource
       @name = attrs['name']
       @url  = attrs['url']
       
-      # @queued_for_delete     = []
-      # @queued_for_write      = {}
-      # @errors                = {}
-      @dirty                 = false
+      @dirty = false
     end
     
     # Loads the attributes of the uploaded file into this object
@@ -77,6 +74,11 @@ module  ParseResource
 
       self
     end
+    
+    def destroy
+      self.instance.delete_file_resource(self).delete
+      nil
+    end
+    
   end
-  
 end
