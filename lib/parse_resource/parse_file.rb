@@ -10,7 +10,7 @@ module  ParseResource
   class ParseFile
     include InstanceMethods
     
-    attr_reader :attr_name, :instance, :tempfile, :content_type, :size, :original_filename, 
+    attr_reader :attr_name, :instance, :tempfile, :content_type, :file_ext, :size, :original_filename, 
                 :name, :url
     
     def initialize(attr_name, instance, attrs={})
@@ -28,6 +28,7 @@ module  ParseResource
       
       @tempfile = file.tempfile
       @original_filename = file.original_filename
+      @file_ext = File.extname(@original_filename)[1..-1]
       @content_type = file.content_type.to_s.strip
       @size = File.size(@tempfile.path)
       self
