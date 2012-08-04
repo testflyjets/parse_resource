@@ -13,6 +13,8 @@ module  ParseResource
     attr_reader :attr_name, :instance, :tempfile, :content_type, :file_ext, :size, :original_filename, 
                 :name, :url
     
+    RESTRICTED_CHARACTERS = /[&$+,\/:;=?@<>\[\]\{\}\|\\\^~%# ]/
+    
     def initialize(attr_name, instance, attrs={})
       @attr_name = attr_name
       @instance  = instance
@@ -27,8 +29,8 @@ module  ParseResource
       return nil if file.nil?
       
       @tempfile = file.tempfile
-      @original_filename = file.original_filename
-      @file_ext = File.extname(@original_filename)[1..-1]
+      @original_filename = cleanup_filename(file.original_filename)
+      @file_ext = File.extname(@original_filename)[1..-1] unless @original_filename.blank?
       @content_type = file.content_type.to_s.strip
       @size = File.size(@tempfile.path)
       self
@@ -79,6 +81,10 @@ module  ParseResource
     def destroy
       self.instance.delete_file_resource(self).delete
       nil
+    end
+    
+    def cleanup_filename(filename)
+      filename.gsub(RESTRICTED_CHARACTERS, '_')
     end
     
   end
