@@ -96,11 +96,13 @@ module ParseResource
       parse_file_fields << name.to_s
       
       class_eval do
-        define_method name do |*args|
-          parse_file(name)
+        define_method "#{name}" do |*args|
+          puts "** in defined_method #{name}"
+          parse_file(name, args)
         end
 
         define_method "#{name}=" do |file|
+          puts "** in defined_method #{name}="
           parse_file(name).assign(file)
         end
       end
@@ -112,7 +114,7 @@ module ParseResource
     end
     
     # Adds multiple file fields in one line
-    def self.file_fields(*args)      
+    def self.file_fields(*args)   
       args.each{ |ff| file_field(ff) }
     end
     
@@ -141,14 +143,14 @@ module ParseResource
 
     # Creates getter methods for model fields
     def create_getters!(k,v)
+      puts "** in create_getters! : #{k} => #{v}"
       self.class.send(:define_method, "#{k}") do
-                
         case @attributes[k]
         when Hash
-          
+        
           klass_name = @attributes[k]["className"]
           klass_name = "User" if klass_name == "_User"
-          
+        
           case @attributes[k]["__type"]
           when "Pointer"
             result = klass_name.constantize.find(@attributes[k]["objectId"])
@@ -157,15 +159,16 @@ module ParseResource
           when "Bytes"
             result = Base64.decode64(@attributes[k]['base64'])
           when "File"
+            puts "*** in create_getters! #{k}"
             result = parse_file(k, @attributes[k])
           end #todo: support Dates and other types https://www.parse.com/docs/rest#objects-types
-          
+        
         else
           result =  @attributes[k]
         end
-        
+      
         result
-      end      
+      end
     end
     
     # Creates setter methods for model fields
@@ -173,12 +176,12 @@ module ParseResource
     # exists, don't override it.
     def create_setters!(k,v)
       if v.is_a?(Hash) && v['__type'] == 'File'
-        self.class.send(:define_method, "#{k}=") do |file|
-          val = parse_file(k).assign(file)
-          @attributes[k.to_s] = val
-          
-          val
-        end
+        # self.class.send(:define_method, "#{k}=") do |file|
+        #   val = parse_file(k).assign(file)
+        #   @attributes[k.to_s] = val
+        #   
+        #   val
+        # end
       else
         self.class.send(:define_method, "#{k}=") do |val|
           val = val.to_pointer if val.respond_to?(:to_pointer)
@@ -457,6 +460,17 @@ module ParseResource
       self.class.resource["#{self.id}"]
     end
 
+    def save
+      if valid?
+        run_callbacks :save do
+          new? ? create : update
+        end
+      else
+        false
+      end
+      rescue false
+    end
+
     def create
       opts = {:content_type => "application/json"}
       # Handle newly created ParseFile objects so they can be
@@ -490,18 +504,7 @@ module ParseResource
     
       result
     end
-
-    def save
-      if valid?
-        run_callbacks :save do
-          new? ? create : update
-        end
-      else
-        false
-      end
-      rescue false
-    end
-
+    
     def update(attributes = {})
       attributes = HashWithIndifferentAccess.new(attributes)
         
