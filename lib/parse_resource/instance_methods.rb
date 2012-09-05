@@ -5,7 +5,6 @@ module ParseResource
       name = name.to_s
       @_parse_files ||= {}
       @_parse_files[name] ||= ParseFile.new(name, self, attrs)
-      puts "** in parse_file: #{name}"
       @_parse_files[name]
     end
 

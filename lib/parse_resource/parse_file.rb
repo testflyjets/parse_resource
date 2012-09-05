@@ -18,6 +18,7 @@ module  ParseResource
     def initialize(attr_name, instance, attrs={})
       @attr_name = attr_name
       @instance  = instance
+      attrs = attrs.first if attrs.is_a?(Array)
       @name = attrs['name']
       @url  = attrs['url']
       
