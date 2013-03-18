@@ -55,15 +55,15 @@ class ParseUser < ParseResource::Base
       rest_key   = settings['rest_key']
       resource = RestClient::Resource.new(base_uri,
         :headers => { "X-Parse-Application-Id" => app_id, 
-                      "X-Parse-REST-API-Key"   => rest_key })
-      puts "*** resource: #{resource.inspect}"
-      
+                      "X-Parse-REST-API-Key"   => rest_key,
+                      "Content-Type"           => "application/json" })
+
       begin
-        resp = resource.post(:email => email)
+        resp = resource.post({'email' => email}.to_json)
         puts "*** success Response: #{resp.inspect}"
         true
-      rescue
-        puts "*** rescue Response: #{resp.inspect}"
+      rescue Exception => e
+        puts "*** rescue Response: #{resp.inspect}, #{e.inspect}"
         false
       end
   end

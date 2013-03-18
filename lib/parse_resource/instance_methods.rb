@@ -9,8 +9,10 @@ module ParseResource
     end
 
     def each_file
-      self.class.parse_file_fields.each do |name|
-        yield(name, parse_file(name))
+      if self.class.parse_file_fields && self.class.parse_file_fields.any?
+        self.class.parse_file_fields.each do |name|
+          yield(name, parse_file(name))
+        end
       end
     end
     
