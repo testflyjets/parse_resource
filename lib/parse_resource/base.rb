@@ -41,6 +41,16 @@ module ParseResource
       attr_accessor :resource_klass_name
     end
 
+    # try to find a +resource_class_name+ for a given class
+    # if the class name isn't initially found
+    def self.resource_class(name)
+      klasses = ObjectSpace.each_object(Class).select { |klass| klass < self }.uniq{ |k| k.name }
+      klasses.each do |klass|
+        return klass.name if klass.resource_klass_name == name
+      end
+      nil
+    end
+
     # Instantiates a ParseResource::Base object
     #
     # @params [Hash], [Boolean] a `Hash` of attributes and a `Boolean` that should be false only if the object already exists
@@ -155,8 +165,19 @@ module ParseResource
         
             case @attributes[k]["__type"]
             when "Pointer"
-              result = klass_name.constantize.find(@attributes[k]["objectId"])
+              # try to resolve a resource_class_name first,
+              # then the given className.
+              # TODO: figure out how to do it the other way around
+              resource_name = Base.resource_class(klass_name)
+              if !resource_name.nil?
+                klass_name = resource_name
+              end
+              result = klass_name.constantize.find(@attributes[k]["objectId"]) 
             when "Object"
+              resource_name = Base.resource_class(klass_name)
+              if !resource_name.nil?
+                klass_name = resource_name
+              end
               result = klass_name.constantize.new(@attributes[k], false)
             when "Bytes"
               result = Base64.decode64(@attributes[k]['base64'])
